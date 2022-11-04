@@ -1,5 +1,7 @@
 use clap::{Args, Parser, Subcommand};
 
+mod cfg;
+
 #[derive(Parser)]
 #[command(author, version, about)]
 struct CliArgs {
@@ -57,4 +59,6 @@ struct Summary {}
 
 fn main() {
     let cli = CliArgs::parse();
+
+    let conf = cfg::load();
 }
