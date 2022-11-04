@@ -31,8 +31,8 @@ enum Commands {
     /// Marks the end of a previously started task.
     End(End),
 
-    /// Amends the task log with a new task.
-    Amend(Amend),
+    /// Add a previously completed entry to the log.
+    Complete(Complete),
 
     /// Summarizes the task log.
     Summary(Summary),
@@ -52,17 +52,21 @@ struct Start {
 struct End {}
 
 #[derive(Args, Debug, Clone)]
-struct Amend {
-    /// The task name to add.
+struct Complete {
+    /// The task name to start tracking.
     task_name: String,
 
-    /// The duration of the task.
+    /// Duration of the task in hh:mm:ss format.
     duration: String,
 
-    /// Optional start time for when the task occurred.
-    start_time: Option<String>,
+    /// Event time for the entry being added. If this
+    /// isn't provided the start time is calculated from the
+    /// current time.
+    #[clap(short, long)]
+    event_time: Option<String>,
 
     /// An optional comment or note describing the task.
+    #[clap(short, long)]
     note: Option<String>,
 }
 
@@ -70,26 +74,6 @@ fn start_handler(
     mut logger: impl logger::TTLogger,
     task_conf: &Start,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // We don't need this for Start but we'll probably do something like this with Amend
-    // let start_time = match &task_conf.start_time {
-    //Some(t_string) => {
-    //let datetime = NaiveDateTime::parse_from_str(&t_string, DT_FORMAT)?;
-    //let dur = datetime.signed_duration_since(*UNIX_EPOCH_DT).num_seconds();
-
-    //if dur < 0 {
-    //Err("Invalid task start time is prior to the UNIX Epoch.")
-    //} else {
-    //Ok(dur as u64)
-    //}
-    //},
-    //None => {
-    //match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-    //Ok(n) => Ok(n.as_secs()),
-    //Err(_) => Err("Unable to generate valid system time for task.")
-    //}
-    //}
-    //}?;
-
     logger.write(LogEntry {
         entry_type: LogEntryType::Start,
         stime: SystemTime::now()
@@ -120,6 +104,47 @@ fn end_handler(
     Ok(())
 }
 
+fn complete_handler(
+    mut logger: impl logger::TTLogger,
+    task_conf: &Complete,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let cur_t = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let dur_parts = task_conf.duration.trim().split(':').map(|i| i.parse()).collect::<Result<Vec<u64>, _>>()?;
+    let duration = (60 * 60 * dur_parts[0]) + (60 * dur_parts[1]) + dur_parts[2];
+
+    let s_time = match &task_conf.event_time {
+        Some(e_time) => {
+            let datetime = NaiveDateTime::parse_from_str(e_time, DT_FORMAT)?;
+            datetime.timestamp() as u64
+        },
+        None => {
+            cur_t - duration
+        }
+    };
+
+    let e_time = s_time + duration;
+
+    logger.write(LogEntry {
+        entry_type: LogEntryType::Start,
+        stime: s_time,
+        task: Some(task_conf.task_name.clone()),
+        note: task_conf.note.clone(),
+    })?;
+
+    logger.write(LogEntry {
+        entry_type: LogEntryType::End,
+        stime: e_time,
+        task: None,
+        note: None,
+    })?;
+
+    Ok(())
+}
+
 #[derive(Args, Debug, Clone)]
 struct Summary {}
 
@@ -133,6 +158,7 @@ fn main() {
     let res = match &cli.command {
         Commands::Start(start) => start_handler(task_logger, start),
         Commands::End(end) => end_handler(task_logger, end),
+        Commands::Complete(complete) => complete_handler(task_logger, complete),
         _default => {
             panic!("Not implemented {:?}", _default);
         }
