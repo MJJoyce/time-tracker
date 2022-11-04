@@ -1,22 +1,22 @@
 use std::env;
 use std::path::Path;
 
-const CONFIG_KEY: &'static str = "TT_CONF";
-const DEFAULT_CONFIG_PATH: &'static str = "~/.config/time-tracker/conf.toml";
+const CONFIG_KEY: &str = "TT_CONF";
+const DEFAULT_CONFIG_PATH: &str = "~/.config/time-tracker/conf.toml";
 
-const LOG_KEY: &'static str = "TT_LOG";
-const DEFAULT_LOG_PATH: &'static str = "~/.time-tracker/log.csv";
+const LOG_KEY: &str = "TT_LOG";
+const DEFAULT_LOG_PATH: &str = "~/.time-tracker/log.csv";
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    config_file: Option<&'static Path>,
-    task_log: String
+    config_file: Option<String>,
+    pub task_log: String,
 }
 
 pub fn load() -> Config {
     let cfg_path = match env::var(CONFIG_KEY) {
         Ok(path) => path,
-        Err(_) => DEFAULT_CONFIG_PATH.to_string()
+        Err(_) => DEFAULT_CONFIG_PATH.to_string(),
     };
 
     let conf = if Path::new(&cfg_path).is_file() {
@@ -26,12 +26,12 @@ pub fn load() -> Config {
     } else {
         let log_path = match env::var(LOG_KEY) {
             Ok(path) => path,
-            Err(_) => DEFAULT_LOG_PATH.to_string()
+            Err(_) => DEFAULT_LOG_PATH.to_string(),
         };
 
         Config {
             config_file: None,
-            task_log: log_path
+            task_log: shellexpand::full(&log_path).unwrap().into(),
         }
     };
 
