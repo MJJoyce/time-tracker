@@ -103,7 +103,10 @@ fn start_handler(
     Ok(())
 }
 
-fn end_handler(mut logger: impl logger::TTLogger, task_conf: &End) -> Result<(), Box<dyn std::error::Error>> {
+fn end_handler(
+    mut logger: impl logger::TTLogger,
+    _task_conf: &End,
+) -> Result<(), Box<dyn std::error::Error>> {
     logger.write(LogEntry {
         entry_type: LogEntryType::End,
         stime: SystemTime::now()
@@ -111,7 +114,7 @@ fn end_handler(mut logger: impl logger::TTLogger, task_conf: &End) -> Result<(),
             .unwrap()
             .as_secs(),
         task: None,
-        note: None
+        note: None,
     })?;
 
     Ok(())
