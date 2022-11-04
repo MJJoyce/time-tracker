@@ -10,6 +10,6 @@ pub enum LogEntryType {
 pub struct LogEntry {
     pub entry_type: LogEntryType,
     pub stime: u64,
-    pub task: String,
+    pub task: Option<String>,
     pub note: Option<String>,
 }

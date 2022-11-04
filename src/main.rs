@@ -96,8 +96,22 @@ fn start_handler(
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_secs(),
-        task: task_conf.task_name.clone(),
+        task: Some(task_conf.task_name.clone()),
         note: task_conf.note.clone(),
+    })?;
+
+    Ok(())
+}
+
+fn end_handler(mut logger: impl logger::TTLogger, task_conf: &End) -> Result<(), Box<dyn std::error::Error>> {
+    logger.write(LogEntry {
+        entry_type: LogEntryType::End,
+        stime: SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+        task: None,
+        note: None
     })?;
 
     Ok(())
@@ -115,6 +129,7 @@ fn main() {
 
     let res = match &cli.command {
         Commands::Start(start) => start_handler(task_logger, start),
+        Commands::End(end) => end_handler(task_logger, end),
         _default => {
             panic!("Not implemented {:?}", _default);
         }
