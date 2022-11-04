@@ -8,3 +8,4 @@ name = "tt"
 path = "src/main.rs"
 
 [dependencies]
+clap = { version = "4.0.19", features = ["derive"] }
