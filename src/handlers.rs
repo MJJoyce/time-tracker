@@ -1,8 +1,10 @@
 use chrono::{NaiveDate, NaiveDateTime};
+use indoc::indoc;
 use lazy_static::lazy_static;
+use std::io::{Error, ErrorKind};
 use std::time::SystemTime;
 
-use crate::cli::{Complete, End, Start};
+use crate::cli::{Complete, End, Start, Status};
 use crate::entry::{LogEntry, LogEntryType};
 use crate::logger;
 
@@ -11,7 +13,6 @@ const DT_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
 lazy_static! {
     static ref UNIX_EPOCH_DT: NaiveDateTime = NaiveDate::from_ymd(1970, 1, 1).and_hms(0, 0, 0);
 }
-
 
 pub fn start_handler(
     mut logger: impl logger::TTLogger,
@@ -117,6 +118,39 @@ pub fn complete_handler(
             task: last_entry.task,
             note: last_entry.note,
         })?;
+    }
+
+    Ok(())
+}
+
+pub fn status_handler(
+    logger: impl logger::TTLogger + IntoIterator<Item = LogEntry> + Clone,
+    _task_conf: &Status,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let Some(last_entry) = logger.into_iter().last() else {
+        return Err(Box::new(Error::new(ErrorKind::NotFound, "Unable to located task to report status.")));
+    };
+
+    match last_entry.entry_type {
+        LogEntryType::Start => {
+            let dt = NaiveDateTime::from_timestamp(last_entry.stime.try_into().unwrap(), 0);
+
+            println!(
+                indoc! {"
+                    Currently tracked task:
+                        Task name: {}
+                        Start time: {}
+                        Notes: {}
+                "},
+                //last_entry.task.unwrap_or("<No Task Name>".to_string()),
+                last_entry.task.unwrap_or_default(),
+                dt,
+                last_entry.note.unwrap_or_default()
+            );
+        }
+        _ => {
+            println!("Not tracking any active tasks.");
+        }
     }
 
     Ok(())
