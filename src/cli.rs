@@ -55,7 +55,7 @@ pub struct Complete {
 }
 
 #[derive(Args, Debug, Clone)]
-struct Summary {}
+pub struct Summary {}
 
 pub fn parse() -> CliArgs {
     CliArgs::parse()
