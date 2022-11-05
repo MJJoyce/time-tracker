@@ -1,12 +1,13 @@
 use chrono::{NaiveDate, NaiveDateTime};
-use clap::{Args, Parser, Subcommand};
 use lazy_static::lazy_static;
 
 use std::time::SystemTime;
 
+use crate::cli::{Commands, Complete, End, Start};
 use crate::entry::{LogEntry, LogEntryType};
 
 mod cfg;
+mod cli;
 mod entry;
 mod logger;
 
@@ -14,60 +15,6 @@ const DT_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
 
 lazy_static! {
     static ref UNIX_EPOCH_DT: NaiveDateTime = NaiveDate::from_ymd(1970, 1, 1).and_hms(0, 0, 0);
-}
-
-#[derive(Parser)]
-#[command(author, version, about)]
-struct CliArgs {
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand, Debug, Clone)]
-enum Commands {
-    /// Starts tracking a work task.
-    Start(Start),
-
-    /// Marks the end of a previously started task.
-    End(End),
-
-    /// Add a previously completed entry to the log.
-    Complete(Complete),
-
-    /// Summarizes the task log.
-    Summary(Summary),
-}
-
-#[derive(Args, Debug, Clone)]
-struct Start {
-    /// The task name to start tracking.
-    task_name: String,
-
-    /// An optional comment or note describing the task.
-    #[clap(short, long)]
-    note: Option<String>,
-}
-
-#[derive(Args, Debug, Clone)]
-struct End {}
-
-#[derive(Args, Debug, Clone)]
-struct Complete {
-    /// The task name to start tracking.
-    task_name: String,
-
-    /// Duration of the task in hh:mm:ss format.
-    duration: String,
-
-    /// Event time for the entry being added. If this
-    /// isn't provided the start time is calculated from the
-    /// current time.
-    #[clap(short, long)]
-    event_time: Option<String>,
-
-    /// An optional comment or note describing the task.
-    #[clap(short, long)]
-    note: Option<String>,
 }
 
 fn start_handler(
@@ -179,11 +126,8 @@ fn complete_handler(
     Ok(())
 }
 
-#[derive(Args, Debug, Clone)]
-struct Summary {}
-
 fn main() {
-    let cli = CliArgs::parse();
+    let cli = cli::parse();
     let conf = cfg::load();
 
     let task_logger =
