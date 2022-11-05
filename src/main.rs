@@ -105,7 +105,7 @@ fn end_handler(
 }
 
 fn complete_handler(
-    mut logger: impl logger::TTLogger,
+    mut logger: impl logger::TTLogger + IntoIterator<Item = LogEntry> + Clone,
     task_conf: &Complete,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let cur_t = SystemTime::now()
@@ -113,21 +113,44 @@ fn complete_handler(
         .unwrap()
         .as_secs();
 
-    let dur_parts = task_conf.duration.trim().split(':').map(|i| i.parse()).collect::<Result<Vec<u64>, _>>()?;
+    let dur_parts = task_conf
+        .duration
+        .trim()
+        .split(':')
+        .map(|i| i.parse())
+        .collect::<Result<Vec<u64>, _>>()?;
     let duration = (60 * 60 * dur_parts[0]) + (60 * dur_parts[1]) + dur_parts[2];
 
     let s_time = match &task_conf.event_time {
         Some(e_time) => {
             let datetime = NaiveDateTime::parse_from_str(e_time, DT_FORMAT)?;
             datetime.timestamp() as u64
-        },
-        None => {
-            cur_t - duration
         }
+        None => cur_t - duration,
     };
 
     let e_time = s_time + duration;
 
+    // Check the last entry of the log to ensure that we're not going to create a invalid log file.
+    //
+    // If the last entry is a Start we need to compare its time with the start time of our complete
+    // entry. If our complete entry occurs before the Start entry we need to insert an End entry,
+    // write the complete entry, and then rewrite the Start entry.
+    let last_entry = logger.clone().into_iter().last();
+    let mut keep_log_valid = false;
+    if let Some(entry) = &last_entry {
+        if entry.entry_type == LogEntryType::Start && s_time < entry.stime {
+            keep_log_valid = true;
+            logger.write(LogEntry {
+                entry_type: LogEntryType::End,
+                stime: cur_t,
+                task: None,
+                note: None,
+            })?;
+        }
+    }
+
+    // Write the "Complete" entry Start / End entries.
     logger.write(LogEntry {
         entry_type: LogEntryType::Start,
         stime: s_time,
@@ -141,6 +164,17 @@ fn complete_handler(
         task: None,
         note: None,
     })?;
+
+    // Rewrite the previous Start entry if we needed to keep the log valid.
+    if keep_log_valid {
+        let last_entry = last_entry.unwrap();
+        logger.write(LogEntry {
+            entry_type: LogEntryType::Start,
+            stime: cur_t,
+            task: last_entry.task,
+            note: last_entry.note,
+        })?;
+    }
 
     Ok(())
 }

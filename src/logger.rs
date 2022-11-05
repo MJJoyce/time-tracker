@@ -12,6 +12,7 @@ pub trait TTLogger {
     fn init(&mut self) -> Result<(), Box<dyn Error>>;
 }
 
+#[derive(Clone)]
 pub struct CSVLog {
     log_loc: String,
 }
@@ -34,25 +35,15 @@ impl TTLogger for CSVLog {
     }
 
     fn init(&mut self) -> Result<(), Box<dyn Error>> {
-        dbg!("CSV init");
         let log_path = Path::new(&self.log_loc);
 
         if log_path.is_file() {
             return Ok(());
         }
 
-        match log_path.parent() {
-            Some(d) => {
-                if !d.is_dir() {
-                    fs::create_dir_all(d)?;
-                    dbg!("Creating dir {:?}", d);
-                }
-            }
-            // We only end up here if if Path::parent() terminates in a root or
-            // prefix. In that case we shouldn't need to create that directory.
-            // All should be fine.
-            _ => {
-                dbg!("Didn't create dir {:?}", log_path);
+        if let Some(d) = log_path.parent() {
+            if !d.is_dir() {
+                fs::create_dir_all(d)?;
             }
         }
 
@@ -60,7 +51,50 @@ impl TTLogger for CSVLog {
     }
 }
 
-pub fn load_logger(log_loc: String) -> Option<impl TTLogger> {
+impl IntoIterator for CSVLog {
+    type Item = LogEntry;
+    type IntoIter = CSVLogIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .open(&self.log_loc)
+            .unwrap();
+        let rdr = csv::ReaderBuilder::new()
+            .has_headers(false)
+            .from_reader(file);
+
+        CSVLogIterator {
+            file_iter: rdr.into_deserialize(),
+        }
+    }
+}
+
+pub struct CSVLogIterator {
+    file_iter: csv::DeserializeRecordsIntoIter<fs::File, LogEntry>,
+}
+
+impl Iterator for CSVLogIterator {
+    type Item = LogEntry;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // TODO: This is actual hell and makes me hate my life
+        match self.file_iter.next() {
+            Some(res) => match res {
+                Ok(entry) => Some(entry),
+                Err(e) => {
+                    eprintln!("CSVLog iteration failed: {:?}", e);
+                    None
+                }
+            },
+            None => None,
+        }
+    }
+}
+
+pub fn load_logger(
+    log_loc: String,
+) -> Option<impl TTLogger + IntoIterator<Item = LogEntry> + Clone> {
     match Path::new(&log_loc).extension() {
         Some(ext) => match ext.to_str() {
             Some("csv") => {
