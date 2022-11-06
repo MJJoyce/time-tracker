@@ -128,7 +128,7 @@ pub fn status_handler(
     _task_conf: &Status,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let Some(last_entry) = logger.into_iter().last() else {
-        return Err(Box::new(Error::new(ErrorKind::NotFound, "Unable to located task to report status.")));
+        return Err(Box::new(Error::new(ErrorKind::NotFound, "Unable to locate task for status reporting.")));
     };
 
     match last_entry.entry_type {
