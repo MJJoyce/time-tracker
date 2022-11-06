@@ -1,11 +1,14 @@
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{Duration, NaiveDate, NaiveDateTime};
 use indoc::indoc;
+use itertools::Itertools;
 use lazy_static::lazy_static;
+use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::time::SystemTime;
 
-use crate::cli::{Clear, Complete, End, Start, Status};
-use crate::entry::{LogEntry, LogEntryType};
+use crate::cli::{Clear, Complete, End, Start, Status, Summary};
+use crate::entry::{LogEntry, LogEntryType, Task};
 use crate::logger;
 
 const DT_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
@@ -128,7 +131,10 @@ pub fn status_handler(
     _task_conf: &Status,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let Some(last_entry) = logger.into_iter().last() else {
-        return Err(Box::new(Error::new(ErrorKind::NotFound, "Unable to locate task for status reporting.")));
+        return Err(Box::new(Error::new(
+            ErrorKind::NotFound,
+            "Unable to locate task for status reporting."))
+        );
     };
 
     match last_entry.entry_type {
@@ -142,7 +148,6 @@ pub fn status_handler(
                         Start time: {}
                         Notes: {}
                 "},
-                //last_entry.task.unwrap_or("<No Task Name>".to_string()),
                 last_entry.task.unwrap_or_default(),
                 dt,
                 last_entry.note.unwrap_or_default()
@@ -157,9 +162,98 @@ pub fn status_handler(
 }
 
 pub fn clear_handler(
-    logger: impl logger::TTLogger + IntoIterator<Item = LogEntry> + Clone,
+    logger: impl logger::TTLogger,
     _task_conf: &Clear,
 ) -> Result<(), Box<dyn std::error::Error>> {
     logger.clear_log()?;
     Ok(())
+}
+
+pub fn summary_handler(
+    logger: impl logger::TTLogger + IntoIterator<Item = LogEntry> + Clone,
+    _task_conf: &Summary,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut tasks = _parse_log_into_tasks(logger);
+    let grouped_tasks = _group_tasks(tasks);
+
+    for group in grouped_tasks {
+        println!("{}", _create_report_for_task_group(group));
+    }
+
+    Ok(())
+}
+
+fn _parse_log_into_tasks(
+    logger: impl logger::TTLogger + IntoIterator<Item = LogEntry> + Clone
+) -> Vec<Task> {
+    let mut tasks = Vec::new();
+
+    for eles in logger.into_iter().collect::<Vec<LogEntry>>().windows(2) {
+        let [e1, e2] = eles else {
+            eprintln!("Unable to process element window {:?}", eles);
+            continue;
+        };
+
+        if e1.entry_type == LogEntryType::End {
+            continue;
+        }
+
+        tasks.push(Task {
+            stime: e1.stime,
+            dur: e2.stime - e1.stime,
+            // This seems like a dumb way of doing this ...
+            task: e1.task.clone().unwrap_or_else(|| "Task".to_string()),
+        });
+    }
+
+    tasks.sort();
+    tasks
+}
+
+fn _group_tasks(tasks: Vec<Task>) -> Vec<Vec<Task>> {
+    let last_date = NaiveDateTime::from_timestamp(tasks[0].stime.try_into().unwrap(), 0);
+
+    let mut grouped_tasks = Vec::new();
+    let mut group = Vec::new();
+
+    for task in tasks {
+        let task_dt = NaiveDateTime::from_timestamp(task.stime.try_into().unwrap(), 0);
+        //
+        if task_dt.date() != last_date.date() {
+            grouped_tasks.push(group);
+            group = Vec::new();
+        } else {
+            group.push(task);
+        }
+    }
+
+    if group.len() > 0 {
+        grouped_tasks.push(group);
+    }
+
+    grouped_tasks
+}
+
+fn _create_report_for_task_group(group: Vec<Task>) -> String {
+    let dt = NaiveDateTime::from_timestamp(group[0].stime.try_into().unwrap(), 0);
+    let mut report = format!("{} Stats\n-----------------------\n", dt.date());
+
+    let mut stats = HashMap::new();
+    for task in group {
+        stats.entry(task.task)
+        .and_modify(|e| *e += task.dur)
+        .or_insert(task.dur);
+    }
+
+    for k in stats.keys().sorted() {
+        let d = Duration::seconds(stats[k] as i64);
+        let s = d.num_seconds() % 60;
+        let m = (d.num_seconds() / 60) % 60;
+        let h = (d.num_seconds() / 60) / 60;
+        report.push_str(
+            &format!("{}: {}h {}m {}s\n", k, h, m, s)
+        );
+    }
+
+    report
 }
