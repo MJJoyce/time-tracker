@@ -35,9 +35,18 @@ pub fn start_handler(
 }
 
 pub fn end_handler(
-    mut logger: impl logger::TTLogger,
+    mut logger: impl logger::TTLogger + IntoIterator<Item = LogEntry> + Clone,
     _task_conf: &End,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let last_entry = logger.clone().into_iter().last();
+
+    if last_entry.is_none() || last_entry.unwrap().entry_type == LogEntryType::End {
+        return Err(Box::new(Error::new(
+            ErrorKind::InvalidData,
+            "Not active task being tracked. Cannot mark task complete."
+        )));
+    }
+
     logger.write(LogEntry {
         entry_type: LogEntryType::End,
         stime: SystemTime::now()
