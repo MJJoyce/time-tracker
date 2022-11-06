@@ -40,14 +40,15 @@ impl TTLogger for CSVLog {
     fn init(&mut self) -> Result<(), Box<dyn Error>> {
         let log_path = Path::new(&self.log_loc);
 
-        if log_path.is_file() {
-            return Ok(());
-        }
-
         if let Some(d) = log_path.parent() {
             if !d.is_dir() {
                 fs::create_dir_all(d)?;
             }
+        }
+
+        if !log_path.is_file() {
+            fs::File::create(log_path)?;
+
         }
 
         Ok(())
