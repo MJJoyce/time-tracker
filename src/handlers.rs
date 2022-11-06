@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use std::io::{Error, ErrorKind};
 use std::time::SystemTime;
 
-use crate::cli::{Complete, End, Start, Status};
+use crate::cli::{Clear, Complete, End, Start, Status};
 use crate::entry::{LogEntry, LogEntryType};
 use crate::logger;
 
@@ -153,5 +153,13 @@ pub fn status_handler(
         }
     }
 
+    Ok(())
+}
+
+pub fn clear_handler(
+    logger: impl logger::TTLogger + IntoIterator<Item = LogEntry> + Clone,
+    _task_conf: &Clear,
+) -> Result<(), Box<dyn std::error::Error>> {
+    logger.clear_log()?;
     Ok(())
 }

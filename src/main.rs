@@ -17,6 +17,7 @@ fn main() {
         Commands::Start(start) => handlers::start_handler(task_logger, start),
         Commands::End(end) => handlers::end_handler(task_logger, end),
         Commands::Complete(complete) => handlers::complete_handler(task_logger, complete),
+        Commands::Clear(clear) => handlers::clear_handler(task_logger, clear),
         Commands::Status(status) => handlers::status_handler(task_logger, status),
         _default => {
             panic!("Not implemented {:?}", _default);

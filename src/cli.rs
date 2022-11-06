@@ -18,6 +18,9 @@ pub enum Commands {
     /// Add a previously completed entry to the log.
     Complete(Complete),
 
+    /// Clear log of all entries
+    Clear(Clear),
+
     /// Display information on the current task being tracked.
     Status(Status),
 
@@ -56,6 +59,9 @@ pub struct Complete {
     #[clap(short, long)]
     pub note: Option<String>,
 }
+
+#[derive(Args, Debug, Clone)]
+pub struct Clear {}
 
 #[derive(Args, Debug, Clone)]
 pub struct Status {}

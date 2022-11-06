@@ -10,6 +10,9 @@ pub trait TTLogger {
 
     /// Initialize the TT Logger as necessary
     fn init(&mut self) -> Result<(), Box<dyn Error>>;
+
+    /// Clear the log
+    fn clear_log(&self) -> Result<(), Box<dyn Error>>;
 }
 
 #[derive(Clone)]
@@ -47,6 +50,11 @@ impl TTLogger for CSVLog {
             }
         }
 
+        Ok(())
+    }
+
+    fn clear_log(&self) -> Result<(), Box<dyn Error>> {
+        fs::remove_file(&self.log_loc)?;
         Ok(())
     }
 }
