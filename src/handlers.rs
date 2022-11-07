@@ -5,6 +5,7 @@ use lazy_static::lazy_static;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
+use std::iter::zip;
 use std::time::SystemTime;
 
 use crate::cli::{Clear, Complete, End, Start, Status, Summary};
@@ -43,7 +44,7 @@ pub fn end_handler(
     if last_entry.is_none() || last_entry.unwrap().entry_type == LogEntryType::End {
         return Err(Box::new(Error::new(
             ErrorKind::InvalidData,
-            "Not active task being tracked. Cannot mark task complete."
+            "Not active task being tracked. Cannot mark task complete.",
         )));
     }
 
@@ -182,18 +183,25 @@ pub fn summary_handler(
     logger: impl logger::TTLogger + IntoIterator<Item = LogEntry> + Clone,
     _task_conf: &Summary,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut tasks = _parse_log_into_tasks(logger);
+    let tasks = _parse_log_into_tasks(logger);
     let grouped_tasks = _group_tasks(tasks);
 
-    for group in grouped_tasks {
-        println!("{}", _create_report_for_task_group(group));
+    let (aggregate_stats, grouped_stats) = _summarize_task_stats(&grouped_tasks);
+
+    for (group, stats) in zip(grouped_tasks, grouped_stats) {
+        println!(
+            "{}",
+            _create_report_for_task_group(group, stats, &aggregate_stats)
+        );
     }
+
+    println!("{}", _create_aggregate_report(aggregate_stats));
 
     Ok(())
 }
 
 fn _parse_log_into_tasks(
-    logger: impl logger::TTLogger + IntoIterator<Item = LogEntry> + Clone
+    logger: impl logger::TTLogger + IntoIterator<Item = LogEntry> + Clone,
 ) -> Vec<Task> {
     let mut tasks = Vec::new();
 
@@ -243,26 +251,83 @@ fn _group_tasks(tasks: Vec<Task>) -> Vec<Vec<Task>> {
     grouped_tasks
 }
 
-fn _create_report_for_task_group(group: Vec<Task>) -> String {
+fn _summarize_task_stats(
+    task_groups: &Vec<Vec<Task>>,
+) -> (HashMap<String, u64>, Vec<HashMap<String, u64>>) {
+    let mut aggregate_stats = HashMap::new();
+    for group in task_groups {
+        for task in group {
+            aggregate_stats
+                .entry(task.task.clone())
+                .and_modify(|e| *e += task.dur)
+                .or_insert(task.dur);
+        }
+    }
+
+    let mut grouped_stats = Vec::new();
+    let mut stats = HashMap::new();
+    for group in task_groups {
+        for task in group {
+            stats
+                .entry(task.task.clone())
+                .and_modify(|e| *e += task.dur)
+                .or_insert(task.dur);
+        }
+
+        grouped_stats.push(stats);
+        stats = HashMap::new();
+    }
+
+    (aggregate_stats, grouped_stats)
+}
+
+fn _create_report_for_task_group(
+    group: Vec<Task>,
+    stats: HashMap<String, u64>,
+    agg_stats: &HashMap<String, u64>,
+) -> String {
     let dt = NaiveDateTime::from_timestamp(group[0].stime.try_into().unwrap(), 0);
     let mut report = format!("{} Stats\n-----------------------\n", dt.date());
 
-    let mut stats = HashMap::new();
-    for task in group {
-        stats.entry(task.task)
-        .and_modify(|e| *e += task.dur)
-        .or_insert(task.dur);
-    }
-
     for k in stats.keys().sorted() {
         let d = Duration::seconds(stats[k] as i64);
-        let s = d.num_seconds() % 60;
-        let m = (d.num_seconds() / 60) % 60;
-        let h = (d.num_seconds() / 60) / 60;
-        report.push_str(
-            &format!("{}: {}h {}m {}s\n", k, h, m, s)
-        );
+        let t_per = stats[k] as f64 / agg_stats[k] as f64 * 100.0;
+        report.push_str(&format!(
+            "{}: {} ({:.2}% of task total)\n",
+            k,
+            format_duration(d),
+            t_per
+        ));
     }
 
     report
+}
+
+fn _create_aggregate_report(agg_stats: HashMap<String, u64>) -> String {
+    let mut report = "Aggregate Stats\n-----------------------\n".to_string();
+
+    let mut total: u64 = 0;
+    for v in agg_stats.values() {
+        total += v;
+    }
+
+    for k in agg_stats.keys().sorted() {
+        let d = Duration::seconds(agg_stats[k] as i64);
+        let t_per = agg_stats[k] as f64 / total as f64 * 100.0;
+        report.push_str(&format!(
+            "{}: {} ({:.2}% of total time)\n",
+            k,
+            format_duration(d),
+            t_per
+        ));
+    }
+
+    report
+}
+
+fn format_duration(dur: Duration) -> String {
+    let s = dur.num_seconds() % 60;
+    let m = (dur.num_seconds() / 60) % 60;
+    let h = (dur.num_seconds() / 60) / 60;
+    format!("{}h {}m {}s", h, m, s)
 }
