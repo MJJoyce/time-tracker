@@ -227,7 +227,7 @@ fn parse_log_into_tasks(
 }
 
 fn group_tasks(tasks: Vec<Task>) -> Vec<Vec<Task>> {
-    let last_date = NaiveDateTime::from_timestamp(tasks[0].stime.try_into().unwrap(), 0);
+    let mut last_date = NaiveDateTime::from_timestamp(tasks[0].stime.try_into().unwrap(), 0);
 
     let mut grouped_tasks = Vec::new();
     let mut group = Vec::new();
@@ -238,9 +238,10 @@ fn group_tasks(tasks: Vec<Task>) -> Vec<Vec<Task>> {
         if task_dt.date() != last_date.date() {
             grouped_tasks.push(group);
             group = Vec::new();
-        } else {
-            group.push(task);
+            last_date = task_dt;
         }
+
+        group.push(task);
     }
 
     if group.len() > 0 {
@@ -251,10 +252,10 @@ fn group_tasks(tasks: Vec<Task>) -> Vec<Vec<Task>> {
 }
 
 fn summarize_task_stats(
-    taskgroups: &Vec<Vec<Task>>,
+    task_groups: &Vec<Vec<Task>>,
 ) -> (HashMap<String, u64>, Vec<HashMap<String, u64>>) {
     let mut aggregate_stats = HashMap::new();
-    for group in taskgroups {
+    for group in task_groups {
         for task in group {
             aggregate_stats
                 .entry(task.task.clone())
@@ -265,7 +266,7 @@ fn summarize_task_stats(
 
     let mut grouped_stats = Vec::new();
     let mut stats = HashMap::new();
-    for group in taskgroups {
+    for group in task_groups {
         for task in group {
             stats
                 .entry(task.task.clone())
