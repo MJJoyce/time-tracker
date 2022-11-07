@@ -20,9 +20,6 @@ fn main() {
         Commands::Clear(clear) => handlers::clear_handler(task_logger, clear),
         Commands::Status(status) => handlers::status_handler(task_logger, status),
         Commands::Summary(summary) => handlers::summary_handler(task_logger, summary),
-        _default => {
-            panic!("Not implemented {:?}", _default);
-        }
     };
 
     match res {

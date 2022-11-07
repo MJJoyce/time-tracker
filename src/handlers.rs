@@ -2,7 +2,6 @@ use chrono::{Duration, NaiveDate, NaiveDateTime};
 use indoc::indoc;
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::iter::zip;
@@ -183,24 +182,24 @@ pub fn summary_handler(
     logger: impl logger::TTLogger + IntoIterator<Item = LogEntry> + Clone,
     _task_conf: &Summary,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let tasks = _parse_log_into_tasks(logger);
-    let grouped_tasks = _group_tasks(tasks);
+    let tasks = parse_log_into_tasks(logger);
+    let grouped_tasks = group_tasks(tasks);
 
-    let (aggregate_stats, grouped_stats) = _summarize_task_stats(&grouped_tasks);
+    let (aggregate_stats, grouped_stats) = summarize_task_stats(&grouped_tasks);
 
     for (group, stats) in zip(grouped_tasks, grouped_stats) {
         println!(
             "{}",
-            _create_report_for_task_group(group, stats, &aggregate_stats)
+            create_report_for_taskgroup(group, stats, &aggregate_stats)
         );
     }
 
-    println!("{}", _create_aggregate_report(aggregate_stats));
+    println!("{}", create_aggregate_report(aggregate_stats));
 
     Ok(())
 }
 
-fn _parse_log_into_tasks(
+fn parse_log_into_tasks(
     logger: impl logger::TTLogger + IntoIterator<Item = LogEntry> + Clone,
 ) -> Vec<Task> {
     let mut tasks = Vec::new();
@@ -227,7 +226,7 @@ fn _parse_log_into_tasks(
     tasks
 }
 
-fn _group_tasks(tasks: Vec<Task>) -> Vec<Vec<Task>> {
+fn group_tasks(tasks: Vec<Task>) -> Vec<Vec<Task>> {
     let last_date = NaiveDateTime::from_timestamp(tasks[0].stime.try_into().unwrap(), 0);
 
     let mut grouped_tasks = Vec::new();
@@ -251,11 +250,11 @@ fn _group_tasks(tasks: Vec<Task>) -> Vec<Vec<Task>> {
     grouped_tasks
 }
 
-fn _summarize_task_stats(
-    task_groups: &Vec<Vec<Task>>,
+fn summarize_task_stats(
+    taskgroups: &Vec<Vec<Task>>,
 ) -> (HashMap<String, u64>, Vec<HashMap<String, u64>>) {
     let mut aggregate_stats = HashMap::new();
-    for group in task_groups {
+    for group in taskgroups {
         for task in group {
             aggregate_stats
                 .entry(task.task.clone())
@@ -266,7 +265,7 @@ fn _summarize_task_stats(
 
     let mut grouped_stats = Vec::new();
     let mut stats = HashMap::new();
-    for group in task_groups {
+    for group in taskgroups {
         for task in group {
             stats
                 .entry(task.task.clone())
@@ -281,7 +280,7 @@ fn _summarize_task_stats(
     (aggregate_stats, grouped_stats)
 }
 
-fn _create_report_for_task_group(
+fn create_report_for_taskgroup(
     group: Vec<Task>,
     stats: HashMap<String, u64>,
     agg_stats: &HashMap<String, u64>,
@@ -303,7 +302,7 @@ fn _create_report_for_task_group(
     report
 }
 
-fn _create_aggregate_report(agg_stats: HashMap<String, u64>) -> String {
+fn create_aggregate_report(agg_stats: HashMap<String, u64>) -> String {
     let mut report = "Aggregate Stats\n-----------------------\n".to_string();
 
     let mut total: u64 = 0;

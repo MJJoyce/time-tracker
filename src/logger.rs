@@ -48,7 +48,6 @@ impl TTLogger for CSVLog {
 
         if !log_path.is_file() {
             fs::File::create(log_path)?;
-
         }
 
         Ok(())
