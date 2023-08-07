@@ -328,6 +328,11 @@ fn create_aggregate_report(agg_stats: HashMap<String, u64>) -> String {
         ));
     }
 
+    report.push_str(&format!(
+        "Total Time: {}",
+        format_duration(Duration::seconds(total as i64))
+    ));
+
     report
 }
 

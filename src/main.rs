@@ -6,7 +6,7 @@
 //! monitoring how much you've worked on your personal project(s).
 //!
 //! # Usage
-//! 
+//!
 //! The `tt` help documentation provides a list of available commands and usage
 //! information.
 //!
