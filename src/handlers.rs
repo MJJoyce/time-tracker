@@ -183,6 +183,12 @@ pub fn summary_handler(
     _task_conf: &Summary,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let tasks = parse_log_into_tasks(logger);
+
+    if tasks.len() == 0 {
+        println!("Cannot generate summary for empty task list.");
+        return Ok(());
+    }
+
     let grouped_tasks = group_tasks(tasks);
 
     let (aggregate_stats, grouped_stats) = summarize_task_stats(&grouped_tasks);
