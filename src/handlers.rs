@@ -184,7 +184,7 @@ pub fn summary_handler(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let tasks = parse_log_into_tasks(logger);
 
-    if tasks.len() == 0 {
+    if tasks.is_empty() {
         println!("Cannot generate summary for empty task list.");
         return Ok(());
     }
@@ -250,7 +250,7 @@ fn group_tasks(tasks: Vec<Task>) -> Vec<Vec<Task>> {
         group.push(task);
     }
 
-    if group.len() > 0 {
+    if !group.is_empty() {
         grouped_tasks.push(group);
     }
 

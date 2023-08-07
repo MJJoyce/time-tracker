@@ -66,7 +66,7 @@ impl IntoIterator for CSVLog {
     fn into_iter(self) -> Self::IntoIter {
         let file = fs::OpenOptions::new()
             .read(true)
-            .open(&self.log_loc)
+            .open(self.log_loc)
             .unwrap();
         let rdr = csv::ReaderBuilder::new()
             .has_headers(false)
