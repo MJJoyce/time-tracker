@@ -8,6 +8,7 @@ const LOG_KEY: &str = "TT_LOG";
 const DEFAULT_LOG_PATH: &str = "~/.time-tracker/log.csv";
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Config {
     config_file: Option<String>,
     pub task_log: String,

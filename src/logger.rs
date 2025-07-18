@@ -23,7 +23,6 @@ pub struct CSVLog {
 impl TTLogger for CSVLog {
     fn write(&mut self, entry: LogEntry) -> Result<(), Box<dyn Error>> {
         let file = fs::OpenOptions::new()
-            .write(true)
             .append(true)
             .create(true)
             .open(&self.log_loc)?;

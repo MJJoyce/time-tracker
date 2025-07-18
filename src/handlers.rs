@@ -80,7 +80,9 @@ pub fn complete_handler(
     let s_time = match &task_conf.event_time {
         Some(e_time) => {
             let naive_datetime = chrono::NaiveDateTime::parse_from_str(e_time, DT_FORMAT)?;
-            let datetime = PACIFIC_TZ.from_local_datetime(&naive_datetime).single()
+            let datetime = PACIFIC_TZ
+                .from_local_datetime(&naive_datetime)
+                .single()
                 .ok_or("Invalid datetime for Pacific timezone")?;
             datetime.timestamp() as u64
         }
@@ -144,8 +146,8 @@ pub fn status_handler(
     let Some(last_entry) = logger.into_iter().last() else {
         return Err(Box::new(Error::new(
             ErrorKind::NotFound,
-            "Unable to locate task for status reporting."))
-        );
+            "Unable to locate task for status reporting.",
+        )));
     };
 
     match last_entry.entry_type {
@@ -248,7 +250,7 @@ fn group_tasks(tasks: Vec<Task>) -> Vec<Vec<Task>> {
         let task_utc = DateTime::<Utc>::from_timestamp(task.stime.try_into().unwrap(), 0)
             .expect("Invalid timestamp");
         let task_dt = task_utc.with_timezone(&*PACIFIC_TZ);
-        
+
         if task_dt.date_naive() != last_date.date_naive() {
             grouped_tasks.push(group);
             group = Vec::new();
@@ -303,7 +305,10 @@ fn create_report_for_taskgroup(
     let utc_dt = DateTime::<Utc>::from_timestamp(group[0].stime.try_into().unwrap(), 0)
         .expect("Invalid timestamp");
     let pacific_dt = utc_dt.with_timezone(&*PACIFIC_TZ);
-    let mut report = format!("{} Stats (PST)\n-----------------------\n", pacific_dt.date_naive());
+    let mut report = format!(
+        "{} Stats (PST)\n-----------------------\n",
+        pacific_dt.date_naive()
+    );
 
     for k in stats.keys().sorted() {
         let d = Duration::seconds(stats[k] as i64);
