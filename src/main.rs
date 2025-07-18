@@ -81,7 +81,7 @@ fn main() {
     match res {
         Ok(()) => {}
         Err(e) => {
-            eprintln!("tt command execution failed: {}", e);
+            eprintln!("tt command execution failed: {e}");
         }
     }
 }

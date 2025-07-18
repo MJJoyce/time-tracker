@@ -90,7 +90,7 @@ impl Iterator for CSVLogIterator {
             Some(res) => match res {
                 Ok(entry) => Some(entry),
                 Err(e) => {
-                    eprintln!("CSVLog iteration failed: {:?}", e);
+                    eprintln!("CSVLog iteration failed: {e:?}");
                     None
                 }
             },
@@ -109,21 +109,18 @@ pub fn load_logger(
                 match l.init() {
                     Ok(()) => Some(l),
                     Err(e) => {
-                        eprintln!("CSVLog init failed: {:?}", e);
+                        eprintln!("CSVLog init failed: {e:?}");
                         None
                     }
                 }
             }
             _ => {
-                eprintln!("Unrecognized log file format extension {:?}", ext);
+                eprintln!("Unrecognized log file format extension {ext:?}");
                 None
             }
         },
         None => {
-            eprintln!(
-                "Unable to extract extension from log file path {:?}",
-                log_loc
-            );
+            eprintln!("Unable to extract extension from log file path {log_loc:?}");
             None
         }
     }

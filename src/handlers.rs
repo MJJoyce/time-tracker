@@ -218,7 +218,7 @@ fn parse_log_into_tasks(
 
     for eles in logger.into_iter().collect::<Vec<LogEntry>>().windows(2) {
         let [e1, e2] = eles else {
-            eprintln!("Unable to process element window {:?}", eles);
+            eprintln!("Unable to process element window {eles:?}");
             continue;
         };
 
@@ -355,5 +355,5 @@ fn format_duration(dur: Duration) -> String {
     let s = dur.num_seconds() % 60;
     let m = (dur.num_seconds() / 60) % 60;
     let h = (dur.num_seconds() / 60) / 60;
-    format!("{}h {}m {}s", h, m, s)
+    format!("{h}h {m}m {s}s")
 }
