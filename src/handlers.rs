@@ -1,4 +1,4 @@
-use chrono::{Duration, NaiveDate, NaiveDateTime};
+use chrono::{DateTime, Duration, FixedOffset, TimeZone, Utc};
 use indoc::indoc;
 use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -14,7 +14,7 @@ use crate::logger;
 const DT_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
 
 lazy_static! {
-    static ref UNIX_EPOCH_DT: NaiveDateTime = NaiveDate::from_ymd(1970, 1, 1).and_hms(0, 0, 0);
+    static ref PACIFIC_TZ: FixedOffset = FixedOffset::west_opt(8 * 3600).unwrap(); // PST (UTC-8)
 }
 
 pub fn start_handler(
@@ -79,7 +79,9 @@ pub fn complete_handler(
 
     let s_time = match &task_conf.event_time {
         Some(e_time) => {
-            let datetime = NaiveDateTime::parse_from_str(e_time, DT_FORMAT)?;
+            let naive_datetime = chrono::NaiveDateTime::parse_from_str(e_time, DT_FORMAT)?;
+            let datetime = PACIFIC_TZ.from_local_datetime(&naive_datetime).single()
+                .ok_or("Invalid datetime for Pacific timezone")?;
             datetime.timestamp() as u64
         }
         None => cur_t - duration,
@@ -148,17 +150,19 @@ pub fn status_handler(
 
     match last_entry.entry_type {
         LogEntryType::Start => {
-            let dt = NaiveDateTime::from_timestamp(last_entry.stime.try_into().unwrap(), 0);
+            let utc_dt = DateTime::<Utc>::from_timestamp(last_entry.stime.try_into().unwrap(), 0)
+                .ok_or("Invalid timestamp")?;
+            let pacific_dt = utc_dt.with_timezone(&*PACIFIC_TZ);
 
             println!(
                 indoc! {"
                     Currently tracked task:
                         Task name: {}
-                        Start time: {}
+                        Start time: {} PST
                         Notes: {}
                 "},
                 last_entry.task.unwrap_or_default(),
-                dt,
+                pacific_dt.format("%Y-%m-%d %H:%M:%S"),
                 last_entry.note.unwrap_or_default()
             );
         }
@@ -233,15 +237,19 @@ fn parse_log_into_tasks(
 }
 
 fn group_tasks(tasks: Vec<Task>) -> Vec<Vec<Task>> {
-    let mut last_date = NaiveDateTime::from_timestamp(tasks[0].stime.try_into().unwrap(), 0);
+    let first_utc = DateTime::<Utc>::from_timestamp(tasks[0].stime.try_into().unwrap(), 0)
+        .expect("Invalid timestamp");
+    let mut last_date = first_utc.with_timezone(&*PACIFIC_TZ);
 
     let mut grouped_tasks = Vec::new();
     let mut group = Vec::new();
 
     for task in tasks {
-        let task_dt = NaiveDateTime::from_timestamp(task.stime.try_into().unwrap(), 0);
-        //
-        if task_dt.date() != last_date.date() {
+        let task_utc = DateTime::<Utc>::from_timestamp(task.stime.try_into().unwrap(), 0)
+            .expect("Invalid timestamp");
+        let task_dt = task_utc.with_timezone(&*PACIFIC_TZ);
+        
+        if task_dt.date_naive() != last_date.date_naive() {
             grouped_tasks.push(group);
             group = Vec::new();
             last_date = task_dt;
@@ -292,8 +300,10 @@ fn create_report_for_taskgroup(
     stats: HashMap<String, u64>,
     agg_stats: &HashMap<String, u64>,
 ) -> String {
-    let dt = NaiveDateTime::from_timestamp(group[0].stime.try_into().unwrap(), 0);
-    let mut report = format!("{} Stats\n-----------------------\n", dt.date());
+    let utc_dt = DateTime::<Utc>::from_timestamp(group[0].stime.try_into().unwrap(), 0)
+        .expect("Invalid timestamp");
+    let pacific_dt = utc_dt.with_timezone(&*PACIFIC_TZ);
+    let mut report = format!("{} Stats (PST)\n-----------------------\n", pacific_dt.date_naive());
 
     for k in stats.keys().sorted() {
         let d = Duration::seconds(stats[k] as i64);
